@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VaxBuscas</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>VaxBuscas</h1>
+
+        <!-- Seção de Busca -->
+        <div class="section">
+            <h2>Busca</h2>
+            <label>Termo de Busca:</label>
+            <input type="text" id="search_term" placeholder="Digite o termo de busca"><br>
+
+            <label>Site/Motor:</label>
+            <select id="search_option">
+                <option value="Bing">Bing</option>
+            </select><br>
+
+            <label>Estado:</label>
+            <select id="state" onchange="updateCities()">
+                <option value="">Selecione um estado</option>
+            </select><br>
+
+            <label>Cidades:</label>
+            <div id="cities_container"></div><br>
+
+            <label>Nº de Páginas:</label>
+            <input type="number" id="max_pages" value="5" min="1" max="100"><br>
+
+            <label>Nº de Threads:</label>
+            <input type="number" id="num_threads" value="1" min="1" max="10"><br>
+        </div>
+
+        <!-- Seção de Controles -->
+        <div class="section">
+            <h2>Controles</h2>
+            <button onclick="startSearch()">Iniciar Busca</button>
+            <button onclick="pauseSearch()">Pausar Busca</button>
+            <button onclick="stopSearch()">Parar Busca</button>
+            <button onclick="saveResults()">Salvar Resultados</button>
+        </div>
+
+        <!-- Seção de Dashboard -->
+        <div class="section">
+            <h2>Dashboard</h2>
+            <p>Cidades Buscadas: <span id="cities_searched">0</span></p>
+            <p>Cidade com Mais CNPJs: <span id="top_city">N/A</span></p>
+            <p>CNPJs no Mês: <span id="monthly_cnpjs">0</span></p>
+        </div>
+
+        <!-- Seção de Logs -->
+        <div class="section">
+            <h2>Logs</h2>
+            <div id="logs" class="logs"></div>
+        </div>
+
+        <!-- Barra de Progresso -->
+        <div class="section">
+            <progress id="progress" value="0" max="100"></progress>
+        </div>
+    </div>
+
+    <script src="/js/scripts.js"></script>
+    <script>
+        // Carregar estados dinamicamente
+        fetch('/states')
+            .then(response => response.json())
+            .then(states => {
+                const stateSelect = document.getElementById('state');
+                states.forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state;
+                    option.textContent = state;
+                    stateSelect.appendChild(option);
+                });
+            });
+    </script>
+</body>
+</html>
