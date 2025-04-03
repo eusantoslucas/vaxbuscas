@@ -27,8 +27,6 @@ function startSearch() {
     const searchTerm = document.getElementById('search_term').value;
     const state = document.getElementById('state').value;
     const cities = Array.from(document.querySelectorAll('#cities_container input:checked')).map(input => input.value);
-    const maxPages = document.getElementById('max_pages').value;
-    const numThreads = document.getElementById('num_threads').value;
 
     if (!searchTerm || !state || cities.length === 0) {
         alert('Por favor, preencha o termo de busca, selecione um estado e pelo menos uma cidade.');
@@ -38,7 +36,7 @@ function startSearch() {
     fetch('/start_search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ search_term: searchTerm, cities, state, max_pages: maxPages, num_threads: numThreads })
+        body: JSON.stringify({ search_term: searchTerm, cities, state })
     })
     .then(response => response.json())
     .then(data => {
@@ -47,15 +45,8 @@ function startSearch() {
         } else {
             alert(data.message);
             pollResults();
-            updateDashboard();
         }
     });
-}
-
-function pauseSearch() {
-    fetch('/pause_search', { method: 'POST' })
-    .then(response => response.json())
-    .then(data => alert(data.message));
 }
 
 function stopSearch() {
@@ -89,24 +80,8 @@ function pollResults() {
     .then(data => {
         const logsDiv = document.getElementById('logs');
         data.results.forEach(result => {
-            if (result.log) {
-                logsDiv.innerHTML += `<p>${result.log}</p>`;
-            } else if (result.result) {
-                logsDiv.innerHTML += `<p>Encontrado: ${result.result.Título} - ${result.result.URL} (CNPJ: ${result.result.CNPJ})</p>`;
-            }
+            logsDiv.innerHTML += `<p>Encontrado: ${result.title} - ${result.url} (Localização: ${result.location})</p>`;
         });
         logsDiv.scrollTop = logsDiv.scrollHeight;
-        setTimeout(pollResults, 1000);
-    });
-}
-
-function updateDashboard() {
-    fetch('/dashboard')
-    .then(response => response.json())
-    .then(data => {
-        document.getElementById('cities_searched').textContent = data.cities_searched;
-        document.getElementById('top_city').textContent = data.top_city;
-        document.getElementById('monthly_cnpjs').textContent = data.monthly_cnpjs;
-        setTimeout(updateDashboard, 5000);
     });
 }
