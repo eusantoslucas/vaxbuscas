@@ -7,7 +7,6 @@ import queue
 import time
 from collections import Counter
 from datetime import datetime
-import json
 import io
 import pandas as pd
 
@@ -29,59 +28,59 @@ logs = []
 
 # Dicionário de estados e cidades (10 principais cidades por estado)
 states_cities = {
-    "AC": ["Rio Branco", "Cruzeiro do Sul", "Sena Madureira", "Tarauacá", "Feijó", 
+    "AC": ["Rio Branco", "Cruzeiro do Sul", "Sena Madureira", "Tarauacá", "Feijó",
            "Brasiléia", "Xapuri", "Senador Guiomard", "Plácido de Castro", "Mâncio Lima"],
-    "AL": ["Maceió", "Arapiraca", "Palmeira dos Índios", "Rio Largo", "Penedo", 
+    "AL": ["Maceió", "Arapiraca", "Palmeira dos Índios", "Rio Largo", "Penedo",
            "União dos Palmares", "São Miguel dos Campos", "Coruripe", "Delmiro Gouveia", "Marechal Deodoro"],
-    "AM": ["Manaus", "Parintins", "Itacoatiara", "Manacapuru", "Coari", 
+    "AM": ["Manaus", "Parintins", "Itacoatiara", "Manacapuru", "Coari",
            "Tefé", "Tabatinga", "Maués", "Humaitá", "Eirunepé"],
-    "AP": ["Macapá", "Santana", "Laranjal do Jari", "Oiapoque", "Mazagão", 
+    "AP": ["Macapá", "Santana", "Laranjal do Jari", "Oiapoque", "Mazagão",
            "Porto Grande", "Tartarugalzinho", "Amapá", "Pedra Branca do Amapari", "Calçoene"],
-    "BA": ["Salvador", "Feira de Santana", "Vitória da Conquista", "Camaçari", "Juazeiro", 
-           "Lauro de Freitas", "Ilhéus", "Jequié", "Teixeira de Freitas", "Alagoin W"],
-    "CE": ["Fortaleza", "Juazeiro do Norte", "Sobral", "Caucaia", "Maracanaú", 
+    "BA": ["Salvador", "Feira de Santana", "Vitória da Conquista", "Camaçari", "Juazeiro",
+           "Lauro de Freitas", "Ilhéus", "Jequié", "Teixeira de Freitas", "Alagoinhas"],
+    "CE": ["Fortaleza", "Juazeiro do Norte", "Sobral", "Caucaia", "Maracanaú",
            "Crato", "Itapipoca", "Maranguape", "Quixadá", "Canindé"],
-    "DF": ["Brasília", "Ceilândia", "Taguatinga", "Samambaia", "Planaltina", 
+    "DF": ["Brasília", "Ceilândia", "Taguatinga", "Samambaia", "Planaltina",
            "Gama", "Santa Maria", "São Sebastião", "Recanto das Emas", "Águas Claras"],
-    "ES": ["Vitória", "Vila Velha", "Cariacica", "Serra", "Linhares", 
+    "ES": ["Vitória", "Vila Velha", "Cariacica", "Serra", "Linhares",
            "Cachoeiro de Itapemirim", "Colatina", "Guarapari", "São Mateus", "Aracruz"],
-    "GO": ["Goiânia", "Aparecida de Goiânia", "Anápolis", "Rio Verde", "Luziânia", 
+    "GO": ["Goiânia", "Aparecida de Goiânia", "Anápolis", "Rio Verde", "Luziânia",
            "Trindade", "Formosa", "Catalão", "Itumbiara", "Jataí"],
-    "MA": ["São Luís", "Imperatriz", "Caxias", "Timon", "Codó", 
+    "MA": ["São Luís", "Imperatriz", "Caxias", "Timon", "Codó",
            "Paço do Lumiar", "Açailândia", "Bacabal", "Balsas", "Santa Inês"],
-    "MG": ["Belo Horizonte", "Uberlândia", "Contagem", "Juiz de Fora", "Betim", 
+    "MG": ["Belo Horizonte", "Uberlândia", "Contagem", "Juiz de Fora", "Betim",
            "Montes Claros", "Ribeirão das Neves", "Uberaba", "Sete Lagoas", "Divinópolis"],
-    "MS": ["Campo Grande", "Dourados", "Três Lagoas", "Corumbá", "Ponta Porã", 
+    "MS": ["Campo Grande", "Dourados", "Três Lagoas", "Corumbá", "Ponta Porã",
            "Naviraí", "Nova Andradina", "Aquidauana", "Sidrolândia", "Paranaíba"],
-    "MT": ["Cuiabá", "Várzea Grande", "Rondonópolis", "Sinop", "Tangará da Serra", 
+    "MT": ["Cuiabá", "Várzea Grande", "Rondonópolis", "Sinop", "Tangará da Serra",
            "Cáceres", "Sorriso", "Lucas do Rio Verde", "Barra do Garças", "Primavera do Leste"],
-    "PA": ["Belém", "Ananindeua", "Santarém", "Marabá", "Parauapebas", 
+    "PA": ["Belém", "Ananindeua", "Santarém", "Marabá", "Parauapebas",
            "Castanhal", "Abaetetuba", "Cametá", "Bragança", "Tucuruí"],
-    "PB": ["João Pessoa", "Campina Grande", "Santa Rita", "Patos", "Bayeux", 
+    "PB": ["João Pessoa", "Campina Grande", "Santa Rita", "Patos", "Bayeux",
            "Sousa", "Cajazeiras", "Cabedelo", "Guarabira", "Sapé"],
-    "PE": ["Recife", "Jaboatão dos Guararapes", "Olinda", "Caruaru", "Petrolina", 
+    "PE": ["Recife", "Jaboatão dos Guararapes", "Olinda", "Caruaru", "Petrolina",
            "Paulista", "Cabo de Santo Agostinho", "Camaragibe", "Garanhuns", "Vitória de Santo Antão"],
-    "PI": ["Teresina", "Parnaíba", "Picos", "Floriano", "Piripiri", 
+    "PI": ["Teresina", "Parnaíba", "Picos", "Floriano", "Piripiri",
            "Campo Maior", "Barras", "União", "Altos", "José de Freitas"],
-    "PR": ["Curitiba", "Londrina", "Maringá", "Ponta Grossa", "Cascavel", 
+    "PR": ["Curitiba", "Londrina", "Maringá", "Ponta Grossa", "Cascavel",
            "São José dos Pinhais", "Foz do Iguaçu", "Colombo", "Guarapuava", "Paranaguá"],
-    "RJ": ["Rio de Janeiro", "Niterói", "Duque de Caxias", "São Gonçalo", "Nova Iguaçu", 
+    "RJ": ["Rio de Janeiro", "Niterói", "Duque de Caxias", "São Gonçalo", "Nova Iguaçu",
            "Belford Roxo", "Campos dos Goytacazes", "São João de Meriti", "Petrópolis", "Volta Redonda"],
-    "RN": ["Natal", "Mossoró", "Parnamirim", "São Gonçalo do Amarante", "Macaíba", 
+    "RN": ["Natal", "Mossoró", "Parnamirim", "São Gonçalo do Amarante", "Macaíba",
            "Ceará-Mirim", "Caicó", "Assú", "Currais Novos", "Santa Cruz"],
-    "RO": ["Porto Velho", "Ji-Paraná", "Ariquemes", "Vilhena", "Cacoal", 
+    "RO": ["Porto Velho", "Ji-Paraná", "Ariquemes", "Vilhena", "Cacoal",
            "Rolim de Moura", "Guajará-Mirim", "Jaru", "Ouro Preto do Oeste", "Pimenta Bueno"],
-    "RR": ["Boa Vista", "Rorainópolis", "CarI", "Caracaraí", "Mucajaí", "Alto Alegre", 
+    "RR": ["Boa Vista", "Rorainópolis", "Caracaraí", "Mucajaí", "Alto Alegre",
            "Pacaraima", "Bonfim", "Cantá", "Normandia", "Uiramutã"],
-    "RS": ["Porto Alegre", "Caxias do Sul", "Pelotas", "Canoas", "Santa Maria", 
+    "RS": ["Porto Alegre", "Caxias do Sul", "Pelotas", "Canoas", "Santa Maria",
            "Gravataí", "Viamão", "Novo Hamburgo", "São Leopoldo", "Rio Grande"],
-    "SC": ["Florianópolis", "Joinville", "Blumenau", "São José", "Criciúma", 
+    "SC": ["Florianópolis", "Joinville", "Blumenau", "São José", "Criciúma",
            "Chapecó", "Itajaí", "Jaraguá do Sul", "Lages", "Balneário Camboriú"],
-    "SE": ["Aracaju", "Nossa Senhora do Socorro", "Lagarto", "Itabaiana", "São Cristóvão", 
+    "SE": ["Aracaju", "Nossa Senhora do Socorro", "Lagarto", "Itabaiana", "São Cristóvão",
            "Estância", "Tobias Barreto", "Propriá", "Barra dos Coqueiros", "Simão Dias"],
-    "SP": ["São Paulo", "Campinas", "Santos", "São Bernardo do Campo", "Santo André", 
+    "SP": ["São Paulo", "Campinas", "Santos", "São Bernardo do Campo", "Santo André",
            "Osasco", "São José dos Campos", "Ribeirão Preto", "Sorocaba", "Mauá"],
-    "TO": ["Palmas", "Araguaína", "Gurupi", "Porto Nacional", "Paraíso do Tocantins", 
+    "TO": ["Palmas", "Araguaína", "Gurupi", "Porto Nacional", "Paraíso do Tocantins",
            "Colinas do Tocantins", "Guaraí", "Dianópolis", "Miracema do Tocantins", "Formoso do Araguaia"]
 }
 
@@ -96,8 +95,9 @@ priority_sites = [
 ]
 
 def log_message(message, level="info"):
-    """Adiciona uma mensagem ao log."""
+    """Adiciona uma mensagem ao log com timestamp e nível."""
     logs.append({"message": message, "level": level, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+    print(f"[{level.upper()}] {message}")  # Para depuração local
 
 @app.route('/')
 def index():
@@ -167,7 +167,12 @@ def start_search():
     results = []
     search_counter = 0
 
-    threading.Thread(target=manage_search, args=(search_term, selected_cities, state, max_pages, num_threads), daemon=True).start()
+    task_queue.search_term = search_term
+    task_queue.selected_cities = selected_cities
+    task_queue.state = state
+
+    threading.Thread(target=manage_search, args=(max_pages, num_threads), daemon=True).start()
+    log_message(f"Busca iniciada para '{search_term}' em {state} com {max_pages} páginas e {num_threads} threads.")
     return jsonify({"message": "Busca iniciada."})
 
 @app.route('/pause_search', methods=['POST'])
@@ -242,7 +247,9 @@ def get_search_url(search_term, cities, state, page):
     search_counter += 1
     log_message(f"Priorizando site: {priority_site} na página {page}")
     cities_query = "+".join(cities)
-    return f"https://www.bing.com/search?q={search_term}+in+{cities_query},+{state}+site:{priority_site}&first={first}"
+    url = f"https://www.bing.com/search?q={search_term.replace(' ', '+')}+in+{cities_query},+{state}+site:{priority_site}&first={first}"
+    log_message(f"URL gerada: {url}")  # Depuração
+    return url
 
 def fetch_cnpj_details(cnpj):
     cnpj = re.sub(r'[^0-9]', '', cnpj)
@@ -270,9 +277,10 @@ def extract_details_from_page(url, proxy=None):
     proxies = {"http": proxy, "https": proxy} if proxy else None
     try:
         response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+        response.raise_for_status()  # Levanta exceção para códigos de erro HTTP
+        log_message(f"Requisição bem-sucedida para {url}")
         soup = BeautifulSoup(response.text, "html.parser")
         text = soup.get_text()
-        links = [a.get('href') for a in soup.find_all('a', href=True)]
 
         cnpj_pattern = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}')
         phone_pattern = re.compile(r'\(?\d{2}\)?[\s-]?\d{4,5}[\s-]?\d{4}')
@@ -292,6 +300,7 @@ def extract_details_from_page(url, proxy=None):
             "Instagram": "N/A",
             "WhatsApp": whatsapp
         }
+        links = [a.get('href') for a in soup.find_all('a', href=True)]
         for link in links:
             if "google.com/maps" in link or "g.page" in link:
                 social_media["Google Meu Negócio"] = link
@@ -302,18 +311,16 @@ def extract_details_from_page(url, proxy=None):
             elif "whatsapp.com" in link or "wa.me" in link:
                 social_media["WhatsApp"] = link
 
-        state = request.json.get('state') if request.json else None
-        state_found = False
+        state = task_queue.state if hasattr(task_queue, 'state') else None
         location = "N/A"
         if state:
             for city in states_cities.get(state, []):
-                if city in text:
-                    state_found = True
+                if city in text.lower():  # Case-insensitive
                     location = city
                     break
-        if not state_found and state:
-            log_message(f"Localização de {url} não corresponde ao estado {state}. Ignorando.", "warning")
-            return None
+            if location == "N/A":
+                log_message(f"Localização de {url} não corresponde ao estado {state}. Ignorando.", "warning")
+                return None
 
         details = {
             "CNPJ": cnpj,
@@ -335,6 +342,9 @@ def extract_details_from_page(url, proxy=None):
             city_cnpj_count[location] += 1
 
         return details
+    except requests.RequestException as e:
+        log_message(f"Erro na requisição para {url}: {str(e)}", "error")
+        return None
     except Exception as e:
         log_message(f"Erro ao extrair detalhes de {url}: {str(e)}", "error")
         return None
@@ -350,23 +360,23 @@ def worker():
             if not running or stopped:
                 break
 
-            search_term = task_queue.search_term
-            selected_cities = task_queue.selected_cities
-            state = task_queue.state
+            search_term = getattr(task_queue, 'search_term', '')
+            selected_cities = getattr(task_queue, 'selected_cities', [])
+            state = getattr(task_queue, 'state', '')
             proxy = valid_proxies[0] if valid_proxies else None
 
             url = get_search_url(search_term, selected_cities, state, page)
-            log_message(f"Thread {threading.current_thread().name} buscando página {page}...")
+            log_message(f"Thread {threading.current_thread().name} buscando página {page} com URL: {url}")
 
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'}
-            proxies = {"http": proxy, "https": proxy} if proxy else None
             try:
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+                response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'}, timeout=10)
+                response.raise_for_status()
                 soup = BeautifulSoup(response.text, "html.parser")
+                log_message(f"Conteúdo HTML recebido para página {page}")
 
                 search_results = soup.select(".b_algo")
                 if not search_results:
-                    log_message(f"Nenhum resultado na página {page}.", "warning")
+                    log_message(f"Nenhum resultado na página {page}. Verifique a URL ou o HTML.", "warning")
                 else:
                     for result in search_results:
                         if stopped:
@@ -385,20 +395,16 @@ def worker():
                         except AttributeError as e:
                             log_message(f"Erro ao extrair dados de um resultado: {str(e)}", "error")
 
-            except Exception as e:
-                log_message(f"Erro na página {page}: {str(e)}", "error")
+            except requests.RequestException as e:
+                log_message(f"Erro na requisição para página {page}: {str(e)}", "error")
             finally:
                 task_queue.task_done()
 
         except queue.Empty:
             break
 
-def manage_search(search_term, selected_cities, state, max_pages, num_threads):
+def manage_search(max_pages, num_threads):
     global running, stopped, threads
-    task_queue.search_term = search_term
-    task_queue.selected_cities = selected_cities
-    task_queue.state = state
-
     for page in range(1, max_pages + 1):
         task_queue.put(page)
 
