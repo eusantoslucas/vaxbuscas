@@ -350,6 +350,7 @@ def extract_details_from_page(url, proxy=None):
         return None
 
 def worker():
+    time.sleep(2)  # Adicione antes da requisição em `worker`
     global running, paused, stopped
     while not stopped:
         try:
