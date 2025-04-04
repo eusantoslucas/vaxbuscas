@@ -9,6 +9,7 @@ from collections import Counter
 from datetime import datetime
 import io
 import pandas as pd
+from requests_html import HTMLSession  # Para renderização de JavaScript (se suportado)
 
 app = Flask(__name__)
 
@@ -276,81 +277,86 @@ def extract_details_from_page(url, proxy=None):
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'}
     proxies = {"http": proxy, "https": proxy} if proxy else None
     try:
-        response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
-        response.raise_for_status()  # Levanta exceção para códigos de erro HTTP
-        log_message(f"Requisição bem-sucedida para {url}")
-        soup = BeautifulSoup(response.text, "html.parser")
-        text = soup.get_text()
-
-        cnpj_pattern = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}')
-        phone_pattern = re.compile(r'\(?\d{2}\)?[\s-]?\d{4,5}[\s-]?\d{4}')
-        email_pattern = re.compile(r'[\w\.-]+@[\w\.-]+\.\w+')
-        website_pattern = re.compile(r'(?:https?://)?(?:www\.)?[\w\.-]+\.(?:com|com\.br|org|net)(?:/[\w/-]*)?')
-        whatsapp_pattern = re.compile(r'(?:https?://)?(?:wa\.me|api\.whatsapp\.com|whatsapp\.com)/[\d+]{10,15}|\(?\d{2}\)?[\s-]?\d{5}[\s-]?\d{4}')
-
-        cnpj = cnpj_pattern.search(text).group() if cnpj_pattern.search(text) else "N/A"
-        phone = phone_pattern.search(text).group() if phone_pattern.search(text) else "N/A"
-        email = email_pattern.search(text).group() if email_pattern.search(text) else "N/A"
-        website = website_pattern.search(text).group() if website_pattern.search(text) else "N/A"
-        whatsapp = whatsapp_pattern.search(text).group() if whatsapp_pattern.search(text) else "N/A"
-
-        social_media = {
-            "Google Meu Negócio": "N/A",
-            "LinkedIn": "N/A",
-            "Instagram": "N/A",
-            "WhatsApp": whatsapp
-        }
-        links = [a.get('href') for a in soup.find_all('a', href=True)]
-        for link in links:
-            if "google.com/maps" in link or "g.page" in link:
-                social_media["Google Meu Negócio"] = link
-            elif "linkedin.com" in link:
-                social_media["LinkedIn"] = link
-            elif "instagram.com" in link:
-                social_media["Instagram"] = link
-            elif "whatsapp.com" in link or "wa.me" in link:
-                social_media["WhatsApp"] = link
-
-        state = task_queue.state if hasattr(task_queue, 'state') else None
-        location = "N/A"
-        if state:
-            for city in states_cities.get(state, []):
-                if city in text.lower():  # Case-insensitive
-                    location = city
-                    break
-            if location == "N/A":
-                log_message(f"Localização de {url} não corresponde ao estado {state}. Ignorando.", "warning")
-                return None
-
-        details = {
-            "CNPJ": cnpj,
-            "Telefone": phone,
-            "Email": email,
-            "Localização": location,
-            "Website": website,
-            "WhatsApp": social_media["WhatsApp"],
-            "Google Meu Negócio": social_media["Google Meu Negócio"],
-            "LinkedIn": social_media["LinkedIn"],
-            "Instagram": social_media["Instagram"]
-        }
-
-        if cnpj != "N/A" and cnpj not in saved_cnpjs:
-            cnpj_details = fetch_cnpj_details(cnpj)
-            details.update(cnpj_details)
-            current_month = datetime.now().strftime("%Y-%m")
-            monthly_cnpjs[current_month] += 1
-            city_cnpj_count[location] += 1
-
-        return details
-    except requests.RequestException as e:
-        log_message(f"Erro na requisição para {url}: {str(e)}", "error")
-        return None
+        session = HTMLSession()
+        response = session.get(url, headers=headers, proxies=proxies, timeout=10)
+        response.html.render(timeout=10)  # Tenta renderizar JavaScript
+        soup = BeautifulSoup(response.html.html, "html.parser")
+        log_message(f"Conteúdo HTML renderizado para {url}")
     except Exception as e:
-        log_message(f"Erro ao extrair detalhes de {url}: {str(e)}", "error")
-        return None
+        log_message(f"Falha ao renderizar JavaScript para {url}: {str(e)}. Usando HTML bruto.")
+        try:
+            response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+        except requests.RequestException as e:
+            log_message(f"Erro na requisição para {url}: {str(e)}", "error")
+            return None
+
+    text = soup.get_text()
+    log_message(f"Texto extraído (primeiros 200 caracteres): {text[:200]}...")  # Depuração
+
+    cnpj_pattern = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}')
+    phone_pattern = re.compile(r'\(?\d{2}\)?[\s-]?\d{4,5}[\s-]?\d{4}')
+    email_pattern = re.compile(r'[\w\.-]+@[\w\.-]+\.\w+')
+    website_pattern = re.compile(r'(?:https?://)?(?:www\.)?[\w\.-]+\.(?:com|com\.br|org|net)(?:/[\w/-]*)?')
+    whatsapp_pattern = re.compile(r'(?:https?://)?(?:wa\.me|api\.whatsapp\.com|whatsapp\.com)/[\d+]{10,15}|\(?\d{2}\)?[\s-]?\d{5}[\s-]?\d{4}')
+
+    cnpj = cnpj_pattern.search(text).group() if cnpj_pattern.search(text) else "N/A"
+    phone = phone_pattern.search(text).group() if phone_pattern.search(text) else "N/A"
+    email = email_pattern.search(text).group() if email_pattern.search(text) else "N/A"
+    website = website_pattern.search(text).group() if website_pattern.search(text) else "N/A"
+    whatsapp = whatsapp_pattern.search(text).group() if whatsapp_pattern.search(text) else "N/A"
+
+    social_media = {
+        "Google Meu Negócio": "N/A",
+        "LinkedIn": "N/A",
+        "Instagram": "N/A",
+        "WhatsApp": whatsapp
+    }
+    links = [a.get('href') for a in soup.find_all('a', href=True)]
+    for link in links:
+        if "google.com/maps" in link or "g.page" in link:
+            social_media["Google Meu Negócio"] = link
+        elif "linkedin.com" in link:
+            social_media["LinkedIn"] = link
+        elif "instagram.com" in link:
+            social_media["Instagram"] = link
+        elif "whatsapp.com" in link or "wa.me" in link:
+            social_media["WhatsApp"] = link
+
+    state = getattr(task_queue, 'state', None)
+    location = "N/A"
+    if state:
+        for city in states_cities.get(state, []):
+            if city.lower() in text.lower():  # Case-insensitive
+                location = city
+                break
+        if location == "N/A":
+            log_message(f"Localização de {url} não corresponde ao estado {state}. Ignorando.", "warning")
+            return None
+
+    details = {
+        "CNPJ": cnpj,
+        "Telefone": phone,
+        "Email": email,
+        "Localização": location,
+        "Website": website,
+        "WhatsApp": social_media["WhatsApp"],
+        "Google Meu Negócio": social_media["Google Meu Negócio"],
+        "LinkedIn": social_media["LinkedIn"],
+        "Instagram": social_media["Instagram"]
+    }
+
+    if cnpj != "N/A" and cnpj not in saved_cnpjs:
+        cnpj_details = fetch_cnpj_details(cnpj)
+        details.update(cnpj_details)
+        current_month = datetime.now().strftime("%Y-%m")
+        monthly_cnpjs[current_month] += 1
+        city_cnpj_count[location] += 1
+
+    return details
 
 def worker():
-    time.sleep(2)  # Adicione antes da requisição em `worker`
     global running, paused, stopped
     while not stopped:
         try:
@@ -375,20 +381,23 @@ def worker():
                 soup = BeautifulSoup(response.text, "html.parser")
                 log_message(f"Conteúdo HTML recebido para página {page}")
 
-                search_results = soup.select(".b_algo")
+                # Tentar múltiplos seletores para resultados do Bing
+                search_results = soup.select(".b_algo") or soup.select(".b_title") or soup.select(".organic")
                 if not search_results:
-                    log_message(f"Nenhum resultado na página {page}. Verifique a URL ou o HTML.", "warning")
+                    log_message(f"Nenhum resultado na página {page}. Verifique seletores ou HTML.", "warning")
+                    log_message(f"HTML snippet: {str(soup.body)[:500]}...")  # Depuração
                 else:
                     for result in search_results:
                         if stopped:
                             break
                         try:
-                            title = result.select_one("h2").text.strip() if result.select_one("h2") else "N/A"
+                            title_elem = result.select_one("h2") or result.select_one(".title")
+                            title = title_elem.text.strip() if title_elem else "N/A"
                             link_element = result.select_one("a")
                             url = link_element["href"] if link_element and "href" in link_element.attrs else "N/A"
                             if url != "N/A":
                                 details = extract_details_from_page(url, proxy)
-                                if details and details["CNPJ"] not in saved_cnpjs:
+                                if details and details["CNPJ"] != "N/A" and details["CNPJ"] not in saved_cnpjs:
                                     result_data = {"Título": title, "URL": url}
                                     result_data.update(details)
                                     results.append(result_data)
