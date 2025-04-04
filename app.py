@@ -9,7 +9,6 @@ from collections import Counter
 from datetime import datetime
 import io
 import pandas as pd
-from requests_html import HTMLSession 
 
 app = Flask(__name__)
 
@@ -274,23 +273,20 @@ def fetch_cnpj_details(cnpj):
         return {"Situação Cadastral": "N/A", "Nome dos Sócios": "N/A", "Data de Abertura": "N/A", "Inscrição Estadual": "N/A"}
 
 def extract_details_from_page(url, proxy=None):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+    }
     proxies = {"http": proxy, "https": proxy} if proxy else None
     try:
-        session = HTMLSession()
-        response = session.get(url, headers=headers, proxies=proxies, timeout=10)
-        response.html.render(timeout=10)  # Tenta renderizar JavaScript
-        soup = BeautifulSoup(response.html.html, "html.parser")
-        log_message(f"Conteúdo HTML renderizado para {url}")
-    except Exception as e:
-        log_message(f"Falha ao renderizar JavaScript para {url}: {str(e)}. Usando HTML bruto.")
-        try:
-            response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "html.parser")
-        except requests.RequestException as e:
-            log_message(f"Erro na requisição para {url}: {str(e)}", "error")
-            return None
+        response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        log_message(f"Conteúdo HTML recebido para {url}")
+    except requests.RequestException as e:
+        log_message(f"Erro na requisição para {url}: {str(e)}", "error")
+        return None
 
     text = soup.get_text()
     log_message(f"Texto extraído (primeiros 200 caracteres): {text[:200]}...")  # Depuração
@@ -376,13 +372,18 @@ def worker():
             log_message(f"Thread {threading.current_thread().name} buscando página {page} com URL: {url}")
 
             try:
-                response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'}, timeout=10)
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+                }
+                response = requests.get(url, headers=headers, timeout=10)
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, "html.parser")
                 log_message(f"Conteúdo HTML recebido para página {page}")
 
                 # Tentar múltiplos seletores para resultados do Bing
-                search_results = soup.select(".b_algo") or soup.select(".b_title") or soup.select(".organic")
+                search_results = soup.select("li.b_algo") or soup.select("div.b_title") or soup.select("div.organic")
                 if not search_results:
                     log_message(f"Nenhum resultado na página {page}. Verifique seletores ou HTML.", "warning")
                     log_message(f"HTML snippet: {str(soup.body)[:500]}...")  # Depuração
