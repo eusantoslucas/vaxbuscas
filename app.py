@@ -9,7 +9,7 @@ from collections import Counter
 from datetime import datetime
 import io
 import pandas as pd
-from requests_html import HTMLSession  # Para renderização de JavaScript (se suportado)
+from requests_html import HTMLSession 
 
 app = Flask(__name__)
 
